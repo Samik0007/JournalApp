@@ -1,5 +1,5 @@
 window.journalQuill = (function () {
-  let quill;
+  const quillInstances = {};
 
   function ensureQuill(elementId) {
     const el = document.getElementById(elementId);
@@ -11,8 +11,9 @@ window.journalQuill = (function () {
       throw new Error('Quill is not loaded');
     }
 
-    if (!quill) {
-      quill = new window.Quill(el, {
+    // Check if instance already exists for this element
+    if (!quillInstances[elementId]) {
+      quillInstances[elementId] = new window.Quill(el, {
         theme: 'snow',
         placeholder: 'Start writing your journal entry here...',
         modules: {
@@ -27,7 +28,7 @@ window.journalQuill = (function () {
       });
     }
 
-    return quill;
+    return quillInstances[elementId];
   }
 
   return {
@@ -38,17 +39,25 @@ window.journalQuill = (function () {
       }
       return q;
     },
-    getHtml: function () {
-      return quill ? quill.root.innerHTML : '';
+    getHtml: function (elementId) {
+      const q = elementId ? quillInstances[elementId] : Object.values(quillInstances)[0];
+      return q ? q.root.innerHTML : '';
     },
-    setHtml: function (html) {
-      if (quill) {
-        quill.root.innerHTML = html || '';
+    setHtml: function (elementId, html) {
+      const q = elementId ? quillInstances[elementId] : Object.values(quillInstances)[0];
+      if (q) {
+        q.root.innerHTML = html || '';
       }
     },
-    clear: function () {
-      if (quill) {
-        quill.setText('');
+    clear: function (elementId) {
+      const q = elementId ? quillInstances[elementId] : Object.values(quillInstances)[0];
+      if (q) {
+        q.setText('');
+      }
+    },
+    destroy: function (elementId) {
+      if (quillInstances[elementId]) {
+        delete quillInstances[elementId];
       }
     }
   };
