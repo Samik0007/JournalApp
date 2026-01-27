@@ -1,84 +1,258 @@
 @page "/export-pdf"
+@using Journal_App.Data.Models
 @using Journal_App.Data.Abstractions
+@inject IJournalEntryService JournalService
 @inject IPdfExportService PdfExportService
 @inject ISnackbar Snackbar
 
 <MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
     <MudPaper Elevation="2" Class="pa-4">
-        <MudText Typo="Typo.h5" Class="mb-4">Export PDF</MudText>
+        <MudText Typo="Typo.h5" Class="mb-4">Export Journal Entries</MudText>
+        
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+            Select journal entries to export as PDF documents
+        </MudText>
 
-        <MudGrid>
-            <MudItem xs="12" Class="d-flex justify-center">
-                <MudPaper Elevation="0" Class="pa-6 text-center" Style="max-width: 500px; width: 100%;">
-                    <MudIcon Icon="@Icons.Material.Filled.PictureAsPdf" 
-                             Color="Color.Primary" 
-                             Size="Size.Large" 
-                             Style="font-size: 5rem;" 
-                             Class="mb-4" />
-                    
-                    <MudText Typo="Typo.h6" Class="mb-2">Quest PDF</MudText>
-                    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
-                        Export the quest.pdf file to your device for viewing or sharing.
-                    </MudText>
+        @if (isLoading)
+        {
+            <div class="d-flex justify-center pa-4">
+                <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+            </div>
+        }
+        else if (entries == null || !entries.Any())
+        {
+            <MudPaper Elevation="0" Class="pa-6 text-center">
+                <MudIcon Icon="@Icons.Material.Filled.Description" 
+                         Color="Color.Secondary" 
+                         Size="Size.Large" 
+                         Style="font-size: 4rem;" 
+                         Class="mb-3" />
+                <MudText Typo="Typo.h6" Color="Color.Secondary">No journal entries found</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+                    Start writing journal entries to export them as PDF
+                </MudText>
+            </MudPaper>
+        }
+        else
+        {
+            <MudStack Spacing="3">
+                @foreach (var entry in entries)
+                {
+                    <MudCard Elevation="1" Class="export-card">
+                        <MudCardContent>
+                            <div class="d-flex justify-space-between align-center mb-2">
+                                <MudText Typo="Typo.h6" Class="entry-title">@entry.Title</MudText>
+                                <MudChip T="string" Size="Size.Small" Color="GetMoodColor(entry.PrimaryMood)">
+                                    Mood: @GetMoodDisplayName(entry.PrimaryMood)
+                                </MudChip>
+                            </div>
+                            
+                            <div class="d-flex align-center mb-3" Style="gap: 16px;">
+                                <MudText Typo="Typo.body2" Color="Color.Secondary">
+                                    @entry.EntryDate.ToString("MMMM dd, yyyy")
+                                </MudText>
+                            </div>
 
-                    <MudButton Variant="Variant.Filled" 
+                            <div class="entry-content-preview mb-3">
+                                @((MarkupString)GetPreviewText(entry.Description))
+                            </div>
+
+                            @if (entry.JournalEntryTags != null && entry.JournalEntryTags.Any())
+                            {
+                                <div class="d-flex flex-wrap mb-3" Style="gap: 8px;">
+                                    @foreach (var tag in entry.JournalEntryTags.Take(5))
+                                    {
+                                        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">
+                                            @tag.Tag?.Name
+                                        </MudChip>
+                                    }
+                                    @if (entry.JournalEntryTags.Count > 5)
+                                    {
+                                        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">
+                                            +@(entry.JournalEntryTags.Count - 5) more
+                                        </MudChip>
+                                    }
+                                </div>
+                            }
+                        </MudCardContent>
+                        <MudCardActions>
+                            <MudButton Variant="Variant.Filled" 
+                                       Color="Color.Primary" 
+                                       StartIcon="@Icons.Material.Filled.PictureAsPdf"
+                                       OnClick="@(() => ExportEntry(entry.Id))"
+                                       Disabled="@(exportingIds.Contains(entry.Id))">
+                                @if (exportingIds.Contains(entry.Id))
+                                {
+                                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                                    <span>Exporting...</span>
+                                }
+                                else
+                                {
+                                    <span>Export PDF</span>
+                                }
+                            </MudButton>
+                        </MudCardActions>
+                    </MudCard>
+                }
+            </MudStack>
+
+            @if (entries.Count > 5)
+            {
+                <div class="d-flex justify-center mt-4">
+                    <MudButton Variant="Variant.Outlined" 
                                Color="Color.Primary" 
-                               Size="Size.Large"
-                               OnClick="ExportPdfAsync"
-                               Disabled="@isExporting"
-                               FullWidth
-                               Class="mb-3">
-                        @if (isExporting)
+                               OnClick="ExportAllEntries"
+                               Disabled="isExportingAll">
+                        @if (isExportingAll)
                         {
                             <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
-                            <span>Exporting...</span>
+                            <span>Exporting All...</span>
                         }
                         else
                         {
-                            <span>Export PDF</span>
+                            <span>Export All Entries</span>
                         }
                     </MudButton>
-
-                    @if (!string.IsNullOrEmpty(exportedPath))
-                    {
-                        <MudPaper Elevation="0" Class="pa-3 mt-4" Style="background-color: var(--mud-palette-background-grey); border-radius: 8px;">
-                            <MudText Typo="Typo.body2" Class="mb-2">
-                                <strong>Exported to:</strong>
-                            </MudText>
-                            <MudText Typo="Typo.caption" Style="word-break: break-all; font-family: monospace;">
-                                @exportedPath
-                            </MudText>
-                        </MudPaper>
-                    }
-                </MudPaper>
-            </MudItem>
-        </MudGrid>
+                </div>
+            }
+        }
     </MudPaper>
 </MudContainer>
 
+<style>
+    .export-card {
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .export-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+
+    .entry-title {
+        color: var(--mud-palette-primary);
+        font-weight: 600;
+    }
+
+    .entry-content-preview {
+        color: var(--mud-palette-text-secondary);
+        line-height: 1.6;
+        max-height: 60px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+    }
+</style>
+
 @code {
-    private bool isExporting = false;
-    private string exportedPath = string.Empty;
+    private List<Journalentry>? entries;
+    private bool isLoading = true;
+    private HashSet<Guid> exportingIds = new();
+    private bool isExportingAll = false;
 
-    private async Task ExportPdfAsync()
+    protected override async Task OnInitializedAsync()
     {
-        isExporting = true;
-        exportedPath = string.Empty;
+        await LoadEntries();
+    }
 
+    private async Task LoadEntries()
+    {
+        isLoading = true;
         try
         {
-            var path = await PdfExportService.ExportQuestPdfAsync();
-            exportedPath = path;
-            Snackbar.Add("PDF exported successfully!", Severity.Success);
+            entries = await JournalService.GetAllAsync();
         }
         catch (Exception ex)
         {
-            Snackbar.Add($"Failed to export PDF: {ex.Message}", Severity.Error);
-            Console.WriteLine($"Error exporting PDF: {ex.Message}");
+            Snackbar.Add($"Error loading entries: {ex.Message}", Severity.Error);
+            entries = new List<Journalentry>();
         }
         finally
         {
-            isExporting = false;
+            isLoading = false;
         }
+    }
+
+    private async Task ExportEntry(Guid entryId)
+    {
+        exportingIds.Add(entryId);
+        try
+        {
+            var entry = await JournalService.GetByIdAsync(entryId);
+            if (entry != null)
+            {
+                var path = await PdfExportService.ExportJournalEntryAsync(entry);
+                Snackbar.Add($"Entry '{entry.Title}' exported successfully to Downloads folder!", Severity.Success);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Failed to export entry: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            exportingIds.Remove(entryId);
+        }
+    }
+
+    private async Task ExportAllEntries()
+    {
+        isExportingAll = true;
+        try
+        {
+            if (entries != null && entries.Any())
+            {
+                var path = await PdfExportService.ExportAllJournalEntriesAsync(entries);
+                Snackbar.Add($"All {entries.Count} entries exported successfully to Downloads folder!", Severity.Success);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Failed to export all entries: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            isExportingAll = false;
+        }
+    }
+
+    private string GetPreviewText(string htmlContent)
+    {
+        if (string.IsNullOrEmpty(htmlContent))
+            return "<em>No content</em>";
+
+        // Strip HTML tags
+        var plainText = System.Text.RegularExpressions.Regex.Replace(htmlContent, "<.*?>", string.Empty);
+        
+        if (plainText.Length <= 150)
+            return plainText;
+
+        return plainText.Substring(0, 150) + "...";
+    }
+
+    private string GetMoodDisplayName(MoodCategory mood)
+    {
+        return mood switch
+        {
+            MoodCategory.Happy or MoodCategory.Excited or MoodCategory.Relaxed 
+                or MoodCategory.Grateful or MoodCategory.Confident => "Positive",
+            MoodCategory.Sad or MoodCategory.Angry or MoodCategory.Stressed 
+                or MoodCategory.Lonely or MoodCategory.Anxious => "Negative",
+            _ => "Neutral"
+        };
+    }
+
+    private Color GetMoodColor(MoodCategory mood)
+    {
+        return mood switch
+        {
+            MoodCategory.Happy or MoodCategory.Excited or MoodCategory.Relaxed 
+                or MoodCategory.Grateful or MoodCategory.Confident => Color.Success,
+            MoodCategory.Sad or MoodCategory.Angry or MoodCategory.Stressed 
+                or MoodCategory.Lonely or MoodCategory.Anxious => Color.Error,
+            _ => Color.Default
+        };
     }
 }
