@@ -1,7 +1,7 @@
 @page "/journal-list"
 @using Journal_App.Data.Models
-@using Journal_App.Data.Services
-@inject JournalEntryService JournalService
+@using Journal_App.Data.Abstractions
+@inject IJournalEntryService JournalService
 @inject NavigationManager Navigation
 
 <div class="journal-list-container">
@@ -56,9 +56,11 @@
                         <span class="mood-badge @GetMoodClass(entry.PrimaryMood)">Mood: @GetMoodDisplayName(entry.PrimaryMood)</span>
                     </div>
                     
-                    <p class="entry-description">
-                        @TruncateDescription(entry.Description, 200)
-                    </p>
+                    <div class="entry-content-preview">
+                        <div class="quill-preview ql-editor" @onclick:stopPropagation>
+                            @((MarkupString)GetPreviewHtml(entry.Description))
+                        </div>
+                    </div>
                     
                     <div class="entry-tags">
                         @if (entry.JournalEntryTags != null)
@@ -206,12 +208,32 @@
         }
     }
 
+    private string GetPreviewHtml(string htmlContent)
+    {
+        if (string.IsNullOrEmpty(htmlContent))
+            return "<p><em>No content</em></p>";
+
+        // Strip HTML tags for preview if content is too long
+        var plainText = System.Text.RegularExpressions.Regex.Replace(htmlContent, "<.*?>", string.Empty);
+        
+        if (plainText.Length <= 200)
+            return htmlContent;
+
+        // If too long, truncate plain text and wrap in paragraph
+        var truncated = plainText.Substring(0, 200) + "...";
+        return $"<p>{System.Net.WebUtility.HtmlEncode(truncated)}</p>";
+    }
+
     private string TruncateDescription(string description, int maxLength)
     {
         if (string.IsNullOrEmpty(description)) return string.Empty;
-        return description.Length <= maxLength 
-            ? description 
-            : description.Substring(0, maxLength) + "...";
+        
+        // Strip HTML tags for truncation
+        var plainText = System.Text.RegularExpressions.Regex.Replace(description, "<.*?>", string.Empty);
+        
+        return plainText.Length <= maxLength 
+            ? plainText 
+            : plainText.Substring(0, maxLength) + "...";
     }
 
     private string GetMoodDisplayName(MoodCategory mood)
