@@ -1,0 +1,84 @@
+@page "/export-pdf"
+@using Journal_App.Data.Abstractions
+@inject IPdfExportService PdfExportService
+@inject ISnackbar Snackbar
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
+    <MudPaper Elevation="2" Class="pa-4">
+        <MudText Typo="Typo.h5" Class="mb-4">Export PDF</MudText>
+
+        <MudGrid>
+            <MudItem xs="12" Class="d-flex justify-center">
+                <MudPaper Elevation="0" Class="pa-6 text-center" Style="max-width: 500px; width: 100%;">
+                    <MudIcon Icon="@Icons.Material.Filled.PictureAsPdf" 
+                             Color="Color.Primary" 
+                             Size="Size.Large" 
+                             Style="font-size: 5rem;" 
+                             Class="mb-4" />
+                    
+                    <MudText Typo="Typo.h6" Class="mb-2">Quest PDF</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+                        Export the quest.pdf file to your device for viewing or sharing.
+                    </MudText>
+
+                    <MudButton Variant="Variant.Filled" 
+                               Color="Color.Primary" 
+                               Size="Size.Large"
+                               OnClick="ExportPdfAsync"
+                               Disabled="@isExporting"
+                               FullWidth
+                               Class="mb-3">
+                        @if (isExporting)
+                        {
+                            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                            <span>Exporting...</span>
+                        }
+                        else
+                        {
+                            <span>Export PDF</span>
+                        }
+                    </MudButton>
+
+                    @if (!string.IsNullOrEmpty(exportedPath))
+                    {
+                        <MudPaper Elevation="0" Class="pa-3 mt-4" Style="background-color: var(--mud-palette-background-grey); border-radius: 8px;">
+                            <MudText Typo="Typo.body2" Class="mb-2">
+                                <strong>Exported to:</strong>
+                            </MudText>
+                            <MudText Typo="Typo.caption" Style="word-break: break-all; font-family: monospace;">
+                                @exportedPath
+                            </MudText>
+                        </MudPaper>
+                    }
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+    </MudPaper>
+</MudContainer>
+
+@code {
+    private bool isExporting = false;
+    private string exportedPath = string.Empty;
+
+    private async Task ExportPdfAsync()
+    {
+        isExporting = true;
+        exportedPath = string.Empty;
+
+        try
+        {
+            var path = await PdfExportService.ExportQuestPdfAsync();
+            exportedPath = path;
+            Snackbar.Add("PDF exported successfully!", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Failed to export PDF: {ex.Message}", Severity.Error);
+            Console.WriteLine($"Error exporting PDF: {ex.Message}");
+        }
+        finally
+        {
+            isExporting = false;
+        }
+    }
+}

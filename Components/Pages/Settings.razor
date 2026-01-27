@@ -1,0 +1,181 @@
+@page "/settings"
+@using Journal_App.Data.Abstractions
+@inject IThemeService ThemeService
+@inject IUserService UserService
+@inject ISnackbar Snackbar
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
+    <MudPaper Elevation="2" Class="pa-4">
+        <MudText Typo="Typo.h5" Class="mb-4">Settings</MudText>
+
+        <!-- Theme Settings Section -->
+        <MudPaper Elevation="0" Class="mb-4 pa-4" Style="border: 1px solid var(--mud-palette-divider);">
+            <MudStack Row AlignItems="AlignItems.Center" Class="mb-3">
+                <MudIcon Icon="@Icons.Material.Filled.Palette" Color="Color.Primary" Size="Size.Large" />
+                <MudText Typo="Typo.h6">Theme</MudText>
+            </MudStack>
+            
+            <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+                Choose your preferred theme
+            </MudText>
+
+            <MudStack Row Spacing="2" Class="mb-3">
+                <MudButton Variant="@(currentTheme == AppThemeMode.Light ? Variant.Filled : Variant.Outlined)"
+                           Color="Color.Primary"
+                           OnClick="@(() => ChangeTheme(AppThemeMode.Light))"
+                           Style="min-width: 150px;">
+                    <MudIcon Icon="@Icons.Material.Filled.LightMode" Class="mr-2" />
+                    Light
+                </MudButton>
+                
+                <MudButton Variant="@(currentTheme == AppThemeMode.Dark ? Variant.Filled : Variant.Outlined)"
+                           Color="Color.Primary"
+                           OnClick="@(() => ChangeTheme(AppThemeMode.Dark))"
+                           Style="min-width: 150px;">
+                    <MudIcon Icon="@Icons.Material.Filled.DarkMode" Class="mr-2" />
+                    Dark
+                </MudButton>
+            </MudStack>
+        </MudPaper>
+
+        <!-- Change PIN Section -->
+        <MudPaper Elevation="0" Class="pa-4" Style="border: 1px solid var(--mud-palette-divider);">
+            <MudStack Row AlignItems="AlignItems.Center" Class="mb-3">
+                <MudIcon Icon="@Icons.Material.Filled.Lock" Color="Color.Primary" Size="Size.Large" />
+                <MudText Typo="Typo.h6">Change PIN</MudText>
+            </MudStack>
+            
+            <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+                Update your 4-digit security PIN
+            </MudText>
+
+            <MudTextField @bind-Value="currentPin"
+                          Label="Current PIN"
+                          Variant="Variant.Outlined"
+                          InputType="InputType.Password"
+                          MaxLength="4"
+                          FullWidth
+                          Class="mb-3"
+                          Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Filled.LockOpen" />
+
+            <MudTextField @bind-Value="newPin"
+                          Label="New PIN"
+                          Variant="Variant.Outlined"
+                          InputType="InputType.Password"
+                          MaxLength="4"
+                          FullWidth
+                          Class="mb-3"
+                          Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Filled.Lock" />
+
+            <MudTextField @bind-Value="confirmPin"
+                          Label="Confirm New PIN"
+                          Variant="Variant.Outlined"
+                          InputType="InputType.Password"
+                          MaxLength="4"
+                          FullWidth
+                          Class="mb-3"
+                          Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Filled.Lock" />
+
+            <MudStack Row Justify="Justify.FlexEnd" Spacing="2">
+                <MudButton Variant="Variant.Outlined"
+                           Color="Color.Default"
+                           OnClick="ClearPinForm">
+                    Clear
+                </MudButton>
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           OnClick="ChangePinAsync"
+                           Disabled="@isChangingPin">
+                    @(isChangingPin ? "Changing..." : "Change PIN")
+                </MudButton>
+            </MudStack>
+        </MudPaper>
+    </MudPaper>
+</MudContainer>
+
+@code {
+    private AppThemeMode currentTheme;
+
+    private string currentPin = string.Empty;
+    private string newPin = string.Empty;
+    private string confirmPin = string.Empty;
+    private bool isChangingPin = false;
+
+    protected override void OnInitialized()
+    {
+        currentTheme = ThemeService.GetTheme();
+    }
+
+    private void ChangeTheme(AppThemeMode theme)
+    {
+        currentTheme = theme;
+        ThemeService.SetTheme(theme);
+        Snackbar.Add($"{theme} theme applied successfully!", Severity.Success);
+    }
+
+    private async Task ChangePinAsync()
+    {
+        // Validation
+        if (string.IsNullOrWhiteSpace(currentPin) || string.IsNullOrWhiteSpace(newPin) || string.IsNullOrWhiteSpace(confirmPin))
+        {
+            Snackbar.Add("All fields are required.", Severity.Warning);
+            return;
+        }
+
+        if (currentPin.Length != 4 || !currentPin.All(char.IsDigit))
+        {
+            Snackbar.Add("Current PIN must be 4 digits.", Severity.Warning);
+            return;
+        }
+
+        if (newPin.Length != 4 || !newPin.All(char.IsDigit))
+        {
+            Snackbar.Add("New PIN must be 4 digits.", Severity.Warning);
+            return;
+        }
+
+        if (newPin != confirmPin)
+        {
+            Snackbar.Add("New PIN and confirmation do not match.", Severity.Warning);
+            return;
+        }
+
+        if (currentPin == newPin)
+        {
+            Snackbar.Add("New PIN must be different from current PIN.", Severity.Warning);
+            return;
+        }
+
+        isChangingPin = true;
+
+        try
+        {
+            await UserService.ChangePinAsync(currentPin, newPin);
+            Snackbar.Add("PIN changed successfully!", Severity.Success);
+            ClearPinForm();
+        }
+        catch (InvalidOperationException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add("An error occurred while changing PIN. Please try again.", Severity.Error);
+            Console.WriteLine($"Error changing PIN: {ex.Message}");
+        }
+        finally
+        {
+            isChangingPin = false;
+        }
+    }
+
+    private void ClearPinForm()
+    {
+        currentPin = string.Empty;
+        newPin = string.Empty;
+        confirmPin = string.Empty;
+    }
+}

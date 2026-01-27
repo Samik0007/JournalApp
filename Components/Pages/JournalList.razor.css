@@ -1,0 +1,251 @@
+.journal-list-container {
+    padding: 20px;
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+.page-header h1 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin-bottom: 20px;
+    color: #333;
+}
+
+.controls-bar {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 20px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.filter-section {
+    flex: 0 0 auto;
+}
+
+.sort-select {
+    min-width: 180px;
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    background-color: white;
+}
+
+.search-section {
+    flex: 1;
+    min-width: 200px;
+}
+
+.search-input {
+    width: 100%;
+    padding: 10px 15px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+}
+
+.new-entry-btn {
+    background-color: #3b82f6;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 6px;
+    font-weight: 500;
+}
+
+.new-entry-btn:hover {
+    background-color: #2563eb;
+}
+
+.loading-container,
+.empty-state {
+    text-align: center;
+    padding: 40px;
+    color: #666;
+}
+
+.entries-list {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.entry-card {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 20px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.entry-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.entry-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #1f2937;
+    margin: 0;
+    flex: 1;
+}
+
+.entry-date {
+    font-size: 0.85rem;
+    color: #6b7280;
+}
+
+.mood-badge {
+    font-size: 0.75rem;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-weight: 500;
+}
+
+.mood-positive {
+    background-color: #dcfce7;
+    color: #166534;
+}
+
+.mood-neutral {
+    background-color: #f3f4f6;
+    color: #4b5563;
+}
+
+.mood-negative {
+    background-color: #fee2e2;
+    color: #991b1b;
+}
+
+.entry-description {
+    color: #4b5563;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    margin-bottom: 15px;
+}
+
+.entry-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 15px;
+}
+
+.tag {
+    background-color: #f3f4f6;
+    color: #374151;
+    padding: 4px 12px;
+    border-radius: 15px;
+    font-size: 0.8rem;
+    border: 1px solid #e5e7eb;
+}
+
+.entry-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.entry-actions .btn-info {
+    background-color: #3b82f6;
+    border: none;
+    color: white;
+}
+
+.entry-actions .btn-info:hover {
+    background-color: #2563eb;
+}
+
+.entry-actions .btn-danger {
+    background-color: #6b7280;
+    border: none;
+}
+
+.entry-actions .btn-danger:hover {
+    background-color: #ef4444;
+}
+
+.pagination-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 15px;
+    margin-top: 25px;
+    padding: 15px;
+}
+
+.page-info {
+    font-size: 0.9rem;
+    color: #4b5563;
+    background-color: #f3f4f6;
+    padding: 8px 15px;
+    border-radius: 6px;
+}
+
+.pagination-container .btn {
+    padding: 8px 16px;
+}
+
+.entry-content-preview {
+    margin-bottom: 15px;
+}
+
+.quill-preview {
+    color: #4b5563;
+    font-size: 0.9rem;
+    line-height: 1.6;
+    max-height: 120px;
+    overflow: hidden;
+    position: relative;
+}
+
+.quill-preview::after {
+    content: "";
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 30px;
+    background: linear-gradient(to bottom, transparent, white);
+}
+
+.quill-preview p {
+    margin: 0 0 8px 0;
+}
+
+.quill-preview h1,
+.quill-preview h2,
+.quill-preview h3 {
+    margin: 8px 0;
+    font-weight: 600;
+}
+
+.quill-preview ul,
+.quill-preview ol {
+    margin: 8px 0;
+    padding-left: 20px;
+}
+
+.quill-preview blockquote {
+    border-left: 4px solid #e5e7eb;
+    padding-left: 12px;
+    margin: 8px 0;
+    color: #6b7280;
+}
+
+.quill-preview code {
+    background-color: #f3f4f6;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 0.85em;
+}
+
+.quill-preview pre {
+    background-color: #1f2937;
+    color: #f9fafb;
+    padding: 12px;
+    border-radius: 6px;
+    overflow-x: auto;
+}
