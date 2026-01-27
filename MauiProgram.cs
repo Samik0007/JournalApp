@@ -37,6 +37,8 @@ namespace Journal_App
 
             builder.Services.AddScoped<DBservices>();
             builder.Services.AddScoped<IUserService, UserService>();
+            builder.Services.AddScoped<IThemeService, ThemeService>();
+            builder.Services.AddScoped<IPdfExportService, PdfExportService>();
             builder.Services.AddScoped<IJournalEntryService, JournalEntryService>();
 
 #if DEBUG

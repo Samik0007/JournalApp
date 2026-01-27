@@ -33,9 +33,10 @@ window.journalQuill = (function () {
   return {
     init: function (elementId, initialHtml) {
       const q = ensureQuill(elementId);
-      if (typeof initialHtml === 'string') {
+      if (typeof initialHtml === 'string' && initialHtml.length > 0) {
         q.root.innerHTML = initialHtml;
       }
+      return q;
     },
     getHtml: function () {
       return quill ? quill.root.innerHTML : '';
@@ -43,6 +44,11 @@ window.journalQuill = (function () {
     setHtml: function (html) {
       if (quill) {
         quill.root.innerHTML = html || '';
+      }
+    },
+    clear: function () {
+      if (quill) {
+        quill.setText('');
       }
     }
   };
