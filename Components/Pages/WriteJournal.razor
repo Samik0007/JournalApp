@@ -49,33 +49,70 @@
         </div>
 
         <!-- Tags -->
-        <MudText Typo="Typo.h6" Class="mb-2">Tags</MudText>
-        <MudAutocomplete T="string" 
-                         Value="@tagSearchTerm"
-                         ValueChanged="@((string val) => OnTagSelected(val))"
-                         SearchFunc="SearchTags"
-                         Label="Add tags"
-                         Variant="Variant.Outlined"
-                         Clearable
-                         AdornmentIcon="@Icons.Material.Filled.Search"
-                         AdornmentColor="Color.Primary"
-                         OnKeyDown="HandleTagKeyDown"
-                         Class="mb-2" />
+        <MudText Typo="Typo.h6" Class="mb-2">Tags (Optional)</MudText>
         
-        <div class="tag-chips mb-4">
-            @foreach (var tag in selectedTags)
+        <!-- Custom Tag Input -->
+        <MudText Typo="Typo.subtitle2" Class="mb-2">Custom Tags</MudText>
+        <div class="d-flex gap-2 mb-2">
+            <MudTextField @bind-Value="customTagInput"
+                         Label="Add custom tag"
+                         Variant="Variant.Outlined"
+                         OnKeyDown="HandleCustomTagKeyDown"
+                         Class="flex-grow-1" />
+            <MudButton Variant="Variant.Filled" 
+                       Color="Color.Primary" 
+                       OnClick="AddCustomTag"
+                       Disabled="string.IsNullOrWhiteSpace(customTagInput)">
+                Add Custom Tag
+            </MudButton>
+        </div>
+        <MudText Typo="Typo.caption" Class="mb-3">Press Enter or click "Add Custom Tag" to create your own tag</MudText>
+        
+        <!-- Pre-built Tags -->
+        <MudText Typo="Typo.subtitle2" Class="mb-2">Pre-built Tags</MudText>
+        <MudText Typo="Typo.caption" Class="mb-2">
+            Work, Career, Studies, Family, Friends, Relationships, Health, Fitness, Personal Growth, Self-care, 
+            Hobbies, Travel, Nature, Finance, Spirituality, Birthday, Holiday, Vacation, Celebration, Exercise, 
+            Reading, Writing, Cooking, Meditation, Yoga, Music, Shopping, Parenting, Projects, Planning, Reflection
+        </MudText>
+        <div class="prebuilt-tags-grid mb-3">
+            @foreach (var tag in availableTags.Where(t => t.IsPrebuilt).OrderBy(t => t.Name))
             {
                 var localTag = tag;
-                <span class="tag-chip">
-                    @localTag
-                    <button type="button" class="tag-remove" @onclick="@(() => RemoveTag(localTag))">×</button>
-                </span>
+                var isSelected = selectedTags.Contains(localTag.Name);
+                <button type="button" 
+                        class="prebuilt-tag-button @(isSelected ? "selected" : "")"
+                        @onclick="() => TogglePrebuiltTag(localTag.Name)">
+                    @localTag.Name
+                </button>
+            }
+        </div>
+        
+        <!-- Selected Tags Display -->
+        <MudText Typo="Typo.subtitle2" Class="mb-2">Selected Tags</MudText>
+        <div class="tag-chips mb-4">
+            @if (selectedTags.Any())
+            {
+                @foreach (var tag in selectedTags)
+                {
+                    var localTag = tag;
+                    var isCustom = !availableTags.Any(t => t.IsPrebuilt && t.Name.Equals(localTag, StringComparison.OrdinalIgnoreCase));
+                    <span class="tag-chip @(isCustom ? "custom-tag" : "prebuilt-tag")">
+                        <span class="tag-type-indicator">@(isCustom ? "Custom" : "Pre-built")</span>
+                        @localTag
+                        <button type="button" class="tag-remove" @onclick="@(() => RemoveTag(localTag))">×</button>
+                    </span>
+                }
+            }
+            else
+            {
+                <MudText Typo="Typo.caption" Color="Color.Secondary">No tags selected</MudText>
             }
         </div>
 
-        <!-- Category and Date -->
+        <!-- Category -->
         <MudGrid Class="mb-4">
-            <MudItem xs="12" sm="6">
+            <MudItem xs="12">
                 <MudSelect @bind-Value="category" Label="Category" Variant="Variant.Outlined" FullWidth>
                     <MudSelectItem Value="@("Personal")">Personal</MudSelectItem>
                     <MudSelectItem Value="@("Work")">Work</MudSelectItem>
@@ -86,13 +123,6 @@
                     <MudSelectItem Value="@("Goals")">Goals</MudSelectItem>
                     <MudSelectItem Value="@("Other")">Other</MudSelectItem>
                 </MudSelect>
-            </MudItem>
-            <MudItem xs="12" sm="6">
-                <MudDatePicker @bind-Date="entryDate" 
-                               Label="Entry Date" 
-                               Variant="Variant.Outlined" 
-                               FullWidth 
-                               Editable />
             </MudItem>
         </MudGrid>
 
@@ -124,9 +154,9 @@
     private List<MoodCategory> secondaryMoods = new();
     private List<string> selectedTags = new();
     private string category = "Personal";
-    private DateTime? entryDate = DateTime.Today;
     
     private string tagSearchTerm = string.Empty;
+    private string customTagInput = string.Empty;
     private List<Tag> availableTags = new();
     
     private bool isEditMode = false;
@@ -155,7 +185,7 @@
         else if (_quillInitialized && isEditMode && !string.IsNullOrEmpty(description))
         {
             // Update editor content when loading entry in edit mode
-            await JS.InvokeVoidAsync("journalQuill.setHtml", description);
+            await JS.InvokeVoidAsync("journalQuill.setHtml", "journal-quill", description);
         }
     }
 
@@ -169,7 +199,7 @@
             
             if (_quillInitialized && !string.IsNullOrEmpty(description))
             {
-                await JS.InvokeVoidAsync("journalQuill.setHtml", description);
+                await JS.InvokeVoidAsync("journalQuill.setHtml", "journal-quill", description);
             }
         }
     }
@@ -201,7 +231,6 @@
                 primaryMood = entry.PrimaryMood;
                 primaryMoodGroup = GetMoodGroup(entry.PrimaryMood);
                 category = entry.Category;
-                entryDate = entry.EntryDate;
                 
                 secondaryMoods.Clear();
                 if (entry.SecondaryMood1.HasValue)
@@ -280,6 +309,56 @@
             .Select(t => t.Name);
     }
 
+    private void AddCustomTag()
+    {
+        if (!string.IsNullOrWhiteSpace(customTagInput))
+        {
+            var trimmedTag = customTagInput.Trim();
+            if (!selectedTags.Contains(trimmedTag, StringComparer.OrdinalIgnoreCase))
+            {
+                selectedTags.Add(trimmedTag);
+                
+                // Add to available tags if it's a new custom tag
+                if (!availableTags.Any(t => t.Name.Equals(trimmedTag, StringComparison.OrdinalIgnoreCase)))
+                {
+                    availableTags.Add(new Tag
+                    {
+                        Id = Guid.NewGuid(),
+                        Name = trimmedTag,
+                        IsPrebuilt = false,
+                        CreatedAt = DateTime.UtcNow
+                    });
+                }
+            }
+            customTagInput = string.Empty;
+        }
+    }
+
+    private void TogglePrebuiltTag(string tagName)
+    {
+        if (selectedTags.Contains(tagName, StringComparer.OrdinalIgnoreCase))
+        {
+            selectedTags.Remove(tagName);
+        }
+        else
+        {
+            selectedTags.Add(tagName);
+        }
+    }
+
+    private void HandleCustomTagKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(customTagInput))
+        {
+            AddCustomTag();
+        }
+    }
+
+    private void RemoveTag(string tag)
+    {
+        selectedTags.Remove(tag);
+    }
+
     private void OnTagSelected(string value)
     {
         tagSearchTerm = value;
@@ -287,7 +366,7 @@
         if (!string.IsNullOrWhiteSpace(value))
         {
             var trimmedTag = value.Trim();
-            if (!selectedTags.Contains(trimmedTag))
+            if (!selectedTags.Contains(trimmedTag, StringComparer.OrdinalIgnoreCase))
             {
                 selectedTags.Add(trimmedTag);
                 
@@ -311,35 +390,13 @@
     {
         if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(tagSearchTerm))
         {
-            var trimmedTag = tagSearchTerm.Trim();
-            if (!selectedTags.Contains(trimmedTag))
-            {
-                selectedTags.Add(trimmedTag);
-                
-                // Add to available tags if it's a new custom tag
-                if (!availableTags.Any(t => t.Name.Equals(trimmedTag, StringComparison.OrdinalIgnoreCase)))
-                {
-                    availableTags.Add(new Tag
-                    {
-                        Id = Guid.NewGuid(),
-                        Name = trimmedTag,
-                        IsPrebuilt = false,
-                        CreatedAt = DateTime.UtcNow
-                    });
-                }
-                tagSearchTerm = string.Empty;
-            }
+            AddCustomTag();
         }
-    }
-
-    private void RemoveTag(string tag)
-    {
-        selectedTags.Remove(tag);
     }
 
     private async Task SaveEntry()
     {
-        description = await JS.InvokeAsync<string>("journalQuill.getHtml");
+        description = await JS.InvokeAsync<string>("journalQuill.getHtml", "journal-quill");
 
         if (string.IsNullOrWhiteSpace(title))
         {
@@ -379,7 +436,7 @@
             {
                 await JournalService.CreateAsync(
                     title, description, primaryMood, category,
-                    secondary1, secondary2, selectedTags, entryDate);
+                    secondary1, secondary2, selectedTags, null);
                 Snackbar.Add("Entry saved successfully!", Severity.Success);
                 
                 // Clear form
@@ -389,8 +446,7 @@
                 secondaryMoods.Clear();
                 selectedTags.Clear();
                 category = "Personal";
-                entryDate = DateTime.Today;
-                await JS.InvokeVoidAsync("journalQuill.setHtml", "");
+                await JS.InvokeVoidAsync("journalQuill.setHtml", "journal-quill", "");
             }
 
             await Task.Delay(500);
