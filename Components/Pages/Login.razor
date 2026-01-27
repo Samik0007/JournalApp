@@ -1,0 +1,65 @@
+@page "/login"
+@layout Journal_App.Components.Layout.EmptyLayout
+
+@inject IUserService UserService
+@inject NavigationManager Nav
+
+<div style="max-width:360px;margin:40px auto;padding:20px;background:#fff;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,.1)">
+    <h3>Login</h3>
+
+    @if (mode == UserAuthMode.SetupPin)
+    {
+        <p>Set a 4-digit PIN</p>
+        <input class="form-control" placeholder="PIN" inputmode="numeric" maxlength="4" @bind="pin" />
+        <button class="btn btn-primary" style="margin-top:12px" @onclick="SavePin">Save PIN</button>
+    }
+    else
+    {
+        <p>Enter your PIN</p>
+        <input class="form-control" placeholder="PIN" inputmode="numeric" maxlength="4" @bind="pin" />
+        <button class="btn btn-primary" style="margin-top:12px" @onclick="LoginWithPin">Login</button>
+    }
+
+    @if (!string.IsNullOrWhiteSpace(error))
+    {
+        <div class="alert alert-danger" style="margin-top:12px">@error</div>
+    }
+</div>
+
+@code {
+    private UserAuthMode mode;
+    private string pin = string.Empty;
+    private string error = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        mode = await UserService.GetAuthModeAsync();
+    }
+
+    private async Task SavePin()
+    {
+        error = string.Empty;
+        try
+        {
+            await UserService.CreateUserWithPinAsync(pin);
+            Nav.NavigateTo("/home", true);
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+    }
+
+    private async Task LoginWithPin()
+    {
+        error = string.Empty;
+
+        if (!await UserService.VerifyPinAsync(pin))
+        {
+            error = "Invalid PIN.";
+            return;
+        }
+
+        Nav.NavigateTo("/home", true);
+    }
+}

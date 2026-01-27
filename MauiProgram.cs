@@ -1,4 +1,11 @@
 ﻿using Microsoft.Extensions.Logging;
+using MudBlazor;
+using MudBlazor.Services;
+using Journal_App.Data.Services;
+using Journal_App.Data.Utils;
+using Journal_App.Data.Abstractions;
+using Microsoft.EntityFrameworkCore;
+
 
 namespace Journal_App
 {
@@ -15,9 +22,25 @@ namespace Journal_App
                 });
 
             builder.Services.AddMauiBlazorWebView();
+            builder.Services.AddMudServices(config =>
+            {
+                config.SnackbarConfiguration.PositionClass = Defaults.Classes.Position.BottomLeft;
+                config.SnackbarConfiguration.PreventDuplicates = false;
+                config.SnackbarConfiguration.NewestOnTop = false;
+                config.SnackbarConfiguration.ShowCloseIcon = true;
+                config.SnackbarConfiguration.VisibleStateDuration = 5000;
+            });
+
+            var dbPath = Path.Combine(FileSystem.AppDataDirectory, "journalAppDb.db3");
+            builder.Services.AddDbContext<DBcontext>(options =>
+            options.UseSqlite($"Data Source={dbPath}"));
+
+            builder.Services.AddScoped<DBservices>();
+            builder.Services.AddScoped<IUserService, UserService>();
+            builder.Services.AddScoped<IJournalEntryService, JournalEntryService>();
 
 #if DEBUG
-    		builder.Services.AddBlazorWebViewDeveloperTools();
+            builder.Services.AddBlazorWebViewDeveloperTools();
     		builder.Logging.AddDebug();
 #endif
 

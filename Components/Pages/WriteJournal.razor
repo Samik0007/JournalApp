@@ -1,0 +1,508 @@
+@page "/write-journal"
+@page "/write-journal/{EntryId:guid}"
+@using Journal_App.Data.Models
+@using Journal_App.Data.Abstractions
+@inject IJournalEntryService JournalService
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+
+<div class="write-journal-container">
+    <div class="form-card">
+        <!-- Title Input -->
+        <div class="form-group">
+            <input type="text" 
+                   class="form-control title-input" 
+                   placeholder="Entry Title" 
+                   @bind="title" />
+        </div>
+
+        <!-- Quill Editor -->
+        <div class="form-group">
+            <div id="journal-quill" class="quill-editor"></div>
+        </div>
+
+        <!-- Mood Selection -->
+        <div class="form-section">
+            <h4>Mood Selection</h4>
+            
+            <div class="mood-group">
+                <label class="mood-label">Primary Mood (required)</label>
+                <div class="mood-options">
+                    <label class="mood-option">
+                        <input type="radio" name="primaryMood" value="Positive" 
+                               checked="@(primaryMoodGroup == "Positive")"
+                               @onchange="@(() => SetPrimaryMoodGroup("Positive"))" />
+                        <span>Positive</span>
+                    </label>
+                    <label class="mood-option">
+                        <input type="radio" name="primaryMood" value="Neutral"
+                               checked="@(primaryMoodGroup == "Neutral")"
+                               @onchange="@(() => SetPrimaryMoodGroup("Neutral"))" />
+                        <span>Neutral</span>
+                    </label>
+                    <label class="mood-option">
+                        <input type="radio" name="primaryMood" value="Negative"
+                               checked="@(primaryMoodGroup == "Negative")"
+                               @onchange="@(() => SetPrimaryMoodGroup("Negative"))" />
+                        <span>Negative</span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="mood-group">
+                <label class="mood-label">Secondary Moods (up to two)</label>
+                <div class="mood-options">
+                    @foreach (var mood in GetSecondaryMoodOptions())
+                    {
+                        <label class="mood-option">
+                            <input type="checkbox" 
+                                   checked="@IsSecondaryMoodSelected(mood)"
+                                   @onchange="@((e) => ToggleSecondaryMood(mood, (bool)(e.Value ?? false)))" />
+                            <span>@mood.ToString()</span>
+                        </label>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- Tags Section -->
+        <div class="form-section">
+            <h4>Tags</h4>
+            
+            <!-- Selected Tags Display -->
+            <div class="selected-tags">
+                @foreach (var tag in selectedTags)
+                {
+                    <span class="tag-chip">
+                        @tag
+                        <button type="button" class="tag-remove" @onclick="@(() => RemoveTag(tag))">×</button>
+                    </span>
+                }
+            </div>
+
+            <!-- Tag Dropdown -->
+            <div class="tag-dropdown-container">
+                <div class="tag-input-wrapper">
+                    <input type="text" 
+                           class="form-control tag-input" 
+                           placeholder="Search or add new tag..." 
+                           @bind="tagSearchTerm"
+                           @bind:event="oninput"
+                           @onfocus="ShowTagDropdown"
+                           @onkeydown="HandleTagKeyDown" />
+                    <button type="button" class="tag-dropdown-toggle" @onclick="ToggleTagDropdown">
+                        <span class="dropdown-arrow">?</span>
+                    </button>
+                </div>
+                
+                @if (isTagDropdownOpen)
+                {
+                    <div class="tag-dropdown">
+                        @if (GetFilteredTags().Any())
+                        {
+                            @if (GetFilteredPrebuiltTags().Any())
+                            {
+                                <div class="tag-group-header">Prebuilt Tags</div>
+                                @foreach (var tag in GetFilteredPrebuiltTags())
+                                {
+                                    <div class="tag-dropdown-item @(selectedTags.Contains(tag.Name) ? "selected" : "")" 
+                                         @onclick="@(() => SelectTag(tag.Name))">
+                                        <span>@tag.Name</span>
+                                        @if (selectedTags.Contains(tag.Name))
+                                        {
+                                            <span class="check-mark">?</span>
+                                        }
+                                    </div>
+                                }
+                            }
+                            
+                            @if (GetFilteredCustomTags().Any())
+                            {
+                                <div class="tag-group-header">Custom Tags</div>
+                                @foreach (var tag in GetFilteredCustomTags())
+                                {
+                                    <div class="tag-dropdown-item @(selectedTags.Contains(tag.Name) ? "selected" : "")" 
+                                         @onclick="@(() => SelectTag(tag.Name))">
+                                        <span>@tag.Name</span>
+                                        @if (selectedTags.Contains(tag.Name))
+                                        {
+                                            <span class="check-mark">?</span>
+                                        }
+                                    </div>
+                                }
+                            }
+                        }
+                        else if (!string.IsNullOrWhiteSpace(tagSearchTerm))
+                        {
+                            <div class="tag-dropdown-item create-new" @onclick="CreateAndSelectTag">
+                                <span>+ Create "@tagSearchTerm"</span>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="tag-dropdown-empty">No tags available</div>
+                        }
+                        
+                        @if (!string.IsNullOrWhiteSpace(tagSearchTerm) && GetFilteredTags().Any() && 
+                             !GetFilteredTags().Any(t => t.Name.Equals(tagSearchTerm, StringComparison.OrdinalIgnoreCase)))
+                        {
+                            <div class="tag-dropdown-item create-new" @onclick="CreateAndSelectTag">
+                                <span>+ Create "@tagSearchTerm"</span>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- Category and Date Row -->
+        <div class="form-row">
+            <div class="form-group half-width">
+                <label>Category</label>
+                <select class="form-control" @bind="category">
+                    <option value="Personal">Personal</option>
+                    <option value="Work">Work</option>
+                    <option value="Health">Health</option>
+                    <option value="Travel">Travel</option>
+                    <option value="Learning">Learning</option>
+                    <option value="Relationships">Relationships</option>
+                    <option value="Goals">Goals</option>
+                    <option value="Other">Other</option>
+                </select>
+            </div>
+            <div class="form-group half-width">
+                <label>Entry Date</label>
+                <input type="date" 
+                       class="form-control" 
+                       @bind="entryDate" />
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="form-actions">
+            <button type="button" class="btn btn-secondary" @onclick="Cancel">Cancel</button>
+            <button type="button" class="btn btn-primary" @onclick="SaveEntry" disabled="@isSaving">
+                @(isSaving ? "Saving..." : (isEditMode ? "Save / Update" : "Save Entry"))
+            </button>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger mt-3">@errorMessage</div>
+    }
+
+    @if (!string.IsNullOrEmpty(successMessage))
+    {
+        <div class="alert alert-success mt-3">@successMessage</div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public Guid? EntryId { get; set; }
+
+    private string title = string.Empty;
+    private string description = string.Empty;
+    private string primaryMoodGroup = "Neutral";
+    private MoodCategory primaryMood = MoodCategory.Neutral;
+    private List<MoodCategory> secondaryMoods = new();
+    private List<string> selectedTags = new();
+    private string category = "Personal";
+    private DateTime entryDate = DateTime.Today;
+    
+    // Tag dropdown state
+    private string tagSearchTerm = string.Empty;
+    private bool isTagDropdownOpen = false;
+    private List<Tag> availableTags = new();
+    
+    private bool isEditMode = false;
+    private bool isSaving = false;
+    private string errorMessage = string.Empty;
+    private string successMessage = string.Empty;
+
+    private bool _quillInitialized;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAvailableTags();
+        
+        if (EntryId.HasValue && EntryId.Value != Guid.Empty)
+        {
+            isEditMode = true;
+            await LoadEntry(EntryId.Value);
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await JS.InvokeVoidAsync("journalQuill.init", "journal-quill", description);
+            _quillInitialized = true;
+        }
+        else if (_quillInitialized)
+        {
+            // Ensure editor reflects description if it was loaded after first render (edit mode)
+            await JS.InvokeVoidAsync("journalQuill.setHtml", description);
+        }
+    }
+
+    private async Task LoadAvailableTags()
+    {
+        try
+        {
+            var prebuiltTags = await JournalService.GetPrebuiltTagsAsync();
+            var customTags = await JournalService.GetCustomTagsAsync();
+            availableTags = prebuiltTags.Concat(customTags).ToList();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading tags: {ex.Message}");
+            availableTags = new List<Tag>();
+        }
+    }
+
+    private async Task LoadEntry(Guid id)
+    {
+        try
+        {
+            var entry = await JournalService.GetByIdAsync(id);
+            if (entry != null)
+            {
+                title = entry.Title;
+                description = entry.Description;
+                primaryMood = entry.PrimaryMood;
+                primaryMoodGroup = GetMoodGroup(entry.PrimaryMood);
+                category = entry.Category;
+                entryDate = entry.EntryDate;
+                
+                secondaryMoods.Clear();
+                if (entry.SecondaryMood1.HasValue)
+                    secondaryMoods.Add(entry.SecondaryMood1.Value);
+                if (entry.SecondaryMood2.HasValue)
+                    secondaryMoods.Add(entry.SecondaryMood2.Value);
+
+                selectedTags = entry.JournalEntryTags?
+                    .Select(t => t.Tag?.Name ?? string.Empty)
+                    .Where(n => !string.IsNullOrEmpty(n))
+                    .ToList() ?? new List<string>();
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error loading entry: {ex.Message}";
+        }
+    }
+
+    private void SetPrimaryMoodGroup(string group)
+    {
+        primaryMoodGroup = group;
+        primaryMood = group switch
+        {
+            "Positive" => MoodCategory.Happy,
+            "Negative" => MoodCategory.Sad,
+            _ => MoodCategory.Neutral
+        };
+    }
+
+    private string GetMoodGroup(MoodCategory mood)
+    {
+        return mood switch
+        {
+            MoodCategory.Happy or MoodCategory.Excited or MoodCategory.Relaxed 
+                or MoodCategory.Grateful or MoodCategory.Confident => "Positive",
+            MoodCategory.Sad or MoodCategory.Angry or MoodCategory.Stressed 
+                or MoodCategory.Lonely or MoodCategory.Anxious => "Negative",
+            _ => "Neutral"
+        };
+    }
+
+    private List<MoodCategory> GetSecondaryMoodOptions()
+    {
+        return new List<MoodCategory>
+        {
+            MoodCategory.Happy, MoodCategory.Calm, MoodCategory.Stressed,
+            MoodCategory.Excited, MoodCategory.Sad
+        };
+    }
+
+    private bool IsSecondaryMoodSelected(MoodCategory mood)
+    {
+        return secondaryMoods.Contains(mood);
+    }
+
+    private void ToggleSecondaryMood(MoodCategory mood, bool isSelected)
+    {
+        if (isSelected)
+        {
+            if (secondaryMoods.Count < 2 && !secondaryMoods.Contains(mood))
+            {
+                secondaryMoods.Add(mood);
+            }
+        }
+        else
+        {
+            secondaryMoods.Remove(mood);
+        }
+    }
+
+    // Tag dropdown methods
+    private void ShowTagDropdown()
+    {
+        isTagDropdownOpen = true;
+    }
+
+    private void ToggleTagDropdown()
+    {
+        isTagDropdownOpen = !isTagDropdownOpen;
+    }
+
+    private void HideTagDropdown()
+    {
+        isTagDropdownOpen = false;
+    }
+
+    private List<Tag> GetFilteredTags()
+    {
+        if (string.IsNullOrWhiteSpace(tagSearchTerm))
+            return availableTags;
+            
+        return availableTags
+            .Where(t => t.Name.Contains(tagSearchTerm, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+    }
+
+    private List<Tag> GetFilteredPrebuiltTags()
+    {
+        return GetFilteredTags().Where(t => t.IsPrebuilt).ToList();
+    }
+
+    private List<Tag> GetFilteredCustomTags()
+    {
+        return GetFilteredTags().Where(t => !t.IsPrebuilt).ToList();
+    }
+
+    private void SelectTag(string tagName)
+    {
+        if (selectedTags.Contains(tagName))
+        {
+            selectedTags.Remove(tagName);
+        }
+        else
+        {
+            selectedTags.Add(tagName);
+        }
+        tagSearchTerm = string.Empty;
+    }
+
+    private void CreateAndSelectTag()
+    {
+        if (!string.IsNullOrWhiteSpace(tagSearchTerm) && !selectedTags.Contains(tagSearchTerm))
+        {
+            selectedTags.Add(tagSearchTerm.Trim());
+            tagSearchTerm = string.Empty;
+        }
+    }
+
+    private void HandleTagKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(tagSearchTerm))
+        {
+            var existingTag = availableTags.FirstOrDefault(t => 
+                t.Name.Equals(tagSearchTerm, StringComparison.OrdinalIgnoreCase));
+            
+            if (existingTag != null)
+            {
+                SelectTag(existingTag.Name);
+            }
+            else
+            {
+                CreateAndSelectTag();
+            }
+        }
+        else if (e.Key == "Escape")
+        {
+            HideTagDropdown();
+        }
+    }
+
+    private void RemoveTag(string tag)
+    {
+        selectedTags.Remove(tag);
+    }
+
+    private async Task SaveEntry()
+    {
+        errorMessage = string.Empty;
+        successMessage = string.Empty;
+
+        // pull HTML from Quill before validation/persist
+        description = await JS.InvokeAsync<string>("journalQuill.getHtml");
+
+        if (string.IsNullOrWhiteSpace(title))
+        {
+            errorMessage = "Title is required.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(description))
+        {
+            errorMessage = "Content is required.";
+            return;
+        }
+
+        isSaving = true;
+
+        try
+        {
+            MoodCategory? secondary1 = secondaryMoods.Count > 0 ? secondaryMoods[0] : null;
+            MoodCategory? secondary2 = secondaryMoods.Count > 1 ? secondaryMoods[1] : null;
+
+            if (isEditMode && EntryId.HasValue)
+            {
+                await JournalService.UpdateAsync(
+                    EntryId.Value,
+                    title,
+                    description,
+                    primaryMood,
+                    category,
+                    secondary1,
+                    secondary2,
+                    selectedTags
+                );
+                successMessage = "Entry updated successfully!";
+            }
+            else
+            {
+                await JournalService.CreateAsync(
+                    title,
+                    description,
+                    primaryMood,
+                    category,
+                    secondary1,
+                    secondary2,
+                    selectedTags,
+                    entryDate
+                );
+                successMessage = "Entry saved successfully!";
+            }
+
+            await Task.Delay(1000);
+            Navigation.NavigateTo("/journal-list");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error saving entry: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private void Cancel()
+    {
+        Navigation.NavigateTo("/journal-list");
+    }
+}

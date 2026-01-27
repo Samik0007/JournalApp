@@ -26,20 +26,8 @@ namespace Journal_App.Data.Utils
             modelBuilder.Entity<User>(entity =>
             {
                 entity.HasKey(e => e.Id);
-                entity.Property(e => e.Username).IsRequired().HasMaxLength(100);
-                entity.Property(e => e.email).IsRequired().HasMaxLength(255);
                 entity.Property(e => e.pin).IsRequired().HasMaxLength(4);
                 entity.Property(e => e.CreatedAt).IsRequired();
-
-                // Seed initial user data
-                entity.HasData(new User
-                {
-                    Id = Guid.NewGuid(),
-                    Username = "Samik Bhandari",
-                    email = "samikisdope07@@gmail.com",
-                    pin = 8848,
-                    CreatedAt = DateTime.Now
-                });
             });
             modelBuilder.Entity<Journalentry>(entity =>
             {
