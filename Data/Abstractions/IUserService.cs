@@ -5,7 +5,7 @@ namespace Journal_App.Data.Abstractions;
 public enum UserAuthMode
 {
     SetupPin,
-    LoginPassword
+    LoginPin
 }
 
 public interface IUserService
@@ -14,9 +14,7 @@ public interface IUserService
 
     Task<User> CreateUserWithPinAsync(string pin);
 
-    Task SetPasswordAsync(string password);
-
     Task<bool> VerifyPinAsync(string pin);
 
-    Task<bool> VerifyPasswordAsync(string password);
+    Task ChangePinAsync(string currentPin, string newPin);
 }
